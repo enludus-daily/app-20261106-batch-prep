@@ -3,15 +3,15 @@
   "products": [
     {
       "type": "NON_CONSUMABLE",
-      "productId": "com.enludus.daily.template.pro",
+      "productId": "com.enludus.daily.004.pro",
       "referenceName": "Pro",
       "price": 480,
       "familySharable": true,
-      "reviewNote": "Pro を買うと、すべての〇〇と詳しい振り返りが使えます。課金の画面は設定 > Pro から開けます。",
+      "reviewNote": "Pro を買うと、Pro の印がついたレシピ 26 品（お弁当・冷凍の素・汁の素・漬け・週末のごちそう）と組み合わせ 4 つが開き、1 回の段取りに 8 品まで選べ（無料は 3 品）、食べきりカレンダーが 1 年分になります。課金の画面は「設定 > Pro について」から開けます。はじめての段取りを終えた直後にも 1 回だけ出ます。",
       "reviewScreenshot": "docs/iap/paywall.png",
       "localizations": [
-        {"locale": "ja", "name": "Pro", "description": "すべての〇〇と詳しい振り返り"},
-        {"locale": "en-US", "name": "Pro", "description": "All 〇〇 and detailed reviews"}
+        {"locale": "ja", "name": "段取り帖 Pro", "description": "全レシピ・1回8品の段取り・1年分の記録"},
+        {"locale": "en-US", "name": "Batch Prep Pro", "description": "All recipes, 8-dish plans, a year of records"}
       ]
     }
   ]

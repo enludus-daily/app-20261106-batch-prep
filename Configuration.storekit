@@ -1,0 +1,38 @@
+{
+  "identifier" : "4B1C2D3E",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "480",
+      "familyShareable" : true,
+      "internalID" : "6754000401",
+      "localizations" : [
+        {
+          "description" : "全レシピの束・1回8品までの段取り・1年分の食べきりカレンダー",
+          "displayName" : "段取り帖 Pro",
+          "locale" : "ja"
+        }
+      ],
+      "productID" : "com.enludus.daily.004.pro",
+      "referenceName" : "Pro",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6754000400",
+    "_locale" : "ja",
+    "_storefront" : "JPN",
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}
