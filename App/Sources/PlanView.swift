@@ -353,7 +353,8 @@ struct FlowLayout: Layout {
             widest = max(widest, x - spacing)
             rowHeight = max(rowHeight, size.height)
         }
-        return CGSize(width: min(widest, maxWidth), height: y + rowHeight)
+        // 折り返しを決めた幅をそのまま返す（狭い幅で置き直されて重ならないように）
+        return CGSize(width: maxWidth.isFinite ? maxWidth : widest, height: y + rowHeight)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {

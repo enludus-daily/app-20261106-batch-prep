@@ -226,6 +226,15 @@ struct StatsPanel: View {
                     if !model.isPro {
                         Button("1 年分を見る") { model.offerPaywall(.heatmap) }
                             .font(Typo.small).foregroundStyle(Palette.mintDeep)
+                            .frame(minHeight: 44)
+                    }
+                    if ledger.totalEaten > 0 {
+                        let card = shareImage(ledger)
+                        ShareLink(item: card, preview: SharePreview("食べきりの記録", image: card)) {
+                            Image(systemName: "square.and.arrow.up").font(.footnote).foregroundStyle(Palette.mintDeep)
+                                .frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel("食べきりの記録を共有する")
                     }
                 }
                 HeatmapView(cells: cells)
@@ -242,6 +251,43 @@ struct StatsPanel: View {
         .background(RoundedRectangle(cornerRadius: Radius.panel, style: .continuous).fill(Palette.paper))
         .overlay(RoundedRectangle(cornerRadius: Radius.panel, style: .continuous).stroke(Palette.line, lineWidth: 1))
         .animation(.easeOut(duration: 0.25), value: ledger.totalEaten)
+    }
+}
+
+extension StatsPanel {
+    /// 共有カード（360×480 を 3 倍で書き出す。記録の数字とカレンダーだけ。品名は入れない）
+    @MainActor
+    func shareImage(_ ledger: FridgeLedger) -> Image {
+        let card = ShareCard(rate: ledger.eatRate,
+                             days: ledger.daysWithoutWaste(today: model.today, calendar: model.calendar),
+                             cells: ledger.heatmap(weeks: 8, today: model.today, calendar: model.calendar))
+        let renderer = ImageRenderer(content: card)
+        renderer.scale = 3
+        if let image = renderer.uiImage { return Image(uiImage: image) }
+        return Image(systemName: "refrigerator")
+    }
+}
+
+struct ShareCard: View {
+    let rate: Int?
+    let days: Int
+    let cells: [HeatCell]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            TapeLabel(title: "段取り帖", tilt: -4)
+            Text("作り置きを、食べきった").font(.system(size: 22, design: .serif)).kerning(-0.5).foregroundStyle(Palette.ink)
+            HStack(alignment: .top, spacing: 22) {
+                BigNumber(value: rate.map { "\($0)" } ?? "–", unit: "%", caption: "食べきり率")
+                BigNumber(value: "\(days)", unit: "日", caption: "捨てずに")
+            }
+            HeatmapView(cells: cells)
+            Spacer(minLength: 0)
+        }
+        .padding(28)
+        .frame(width: 360, height: 480, alignment: .topLeading)
+        .background(GridPaper())
+        .background(Palette.paper)
     }
 }
 
