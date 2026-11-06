@@ -50,7 +50,12 @@ struct PlanView: View {
         .sheet(isPresented: $shopping) {
             ShoppingView().presentationBackground(Palette.ground)
         }
-        .fullScreenCover(isPresented: $cooking) {
+        .fullScreenCover(isPresented: $cooking, onDismiss: {
+            if model.pendingPaywall {
+                model.pendingPaywall = false
+                model.offerPaywall(.afterFirstPlan)
+            }
+        }) {
             CookView()
         }
         .sensoryFeedback(trigger: lockedTick) { _, _ in model.hapticsOn ? .warning : nil }
@@ -232,12 +237,13 @@ struct TimelineChart: View {
             Text("タイムライン").font(Typo.serif(.subheadline)).foregroundStyle(Palette.ink)
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 0) {
-                    Color.clear.frame(height: 18)
+                    Color.clear.frame(width: labelWidth, height: 18)
                     ForEach(lanes) { lane in
                         Text(lane.title).font(Typo.label).foregroundStyle(Palette.sub)
                             .frame(width: labelWidth, height: rowHeight, alignment: .leading)
                     }
                 }
+                .frame(width: labelWidth)
                 ScrollView(.horizontal, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 0) {
                         ruler(width: width)

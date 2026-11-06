@@ -79,6 +79,7 @@ struct RecipeBookView: View {
         let selected = model.selectedIDs.contains(recipe.id)
         let locked = !ProRules.canUse(recipe, isPro: model.isPro)
         return HStack(alignment: .center, spacing: 12) {
+            ContainerGlyph(recipe: recipe)
             Button { detail = recipe } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {

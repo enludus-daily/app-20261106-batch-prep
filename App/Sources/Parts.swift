@@ -96,12 +96,12 @@ struct ContainerView: View {
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.trailing, 4)
             }
-            .frame(height: 54)
+            .frame(height: 82)
         }
-        .overlay(alignment: .center) {
+        .overlay(alignment: .bottom) {
             TapeLabel(title: item.name, detail: item.frozen ? "冷凍" : freshness.label, tilt: tilt)
-                .offset(y: 8)
-                .padding(.horizontal, -4)
+                .padding(.bottom, 6)
+                .padding(.horizontal, 2)
         }
         .scaleEffect(selected ? 1.06 : 1)
         .offset(y: selected ? -4 : 0)
@@ -200,5 +200,27 @@ struct EmptyNote: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity)
+    }
+}
+
+/// レシピ帳の小さな保存容器（中身の高さ＝冷蔵の日持ち、7 日で満杯）。冷凍できる品はふたが淡い
+struct ContainerGlyph: View {
+    let recipe: Recipe
+    var body: some View {
+        VStack(spacing: 1.5) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(recipe.freezable ? Palette.mintSoft : Palette.mint.opacity(0.55))
+                .frame(width: 34, height: 5)
+            ZStack(alignment: .bottom) {
+                RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Palette.paper)
+                RoundedRectangle(cornerRadius: 3.5, style: .continuous)
+                    .fill(Palette.mint.opacity(0.55))
+                    .frame(height: max(4, 30 * min(1, Double(recipe.keepsDays) / 7)))
+                    .padding(2.5)
+                RoundedRectangle(cornerRadius: 5, style: .continuous).stroke(Palette.line, lineWidth: 1)
+            }
+            .frame(width: 30, height: 36)
+        }
+        .accessibilityHidden(true)
     }
 }

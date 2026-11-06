@@ -111,18 +111,40 @@ struct OnboardingView: View {
     }
 
     private func bar(x: CGFloat, w: CGFloat, hands: Bool, label: String) -> some View {
-        RoundedRectangle(cornerRadius: 6, style: .continuous)
-            .fill(hands ? Palette.mint : Palette.mintSoft)
-            .overlay(alignment: .leading) {
-                Text(label).font(.system(size: 10, design: .serif)).foregroundStyle(Palette.ink).padding(.leading, 6)
-            }
-            .frame(width: w, height: 22)
-            .offset(x: x)
+        AnimatedBar(x: x, w: w, hands: hands, label: label, delay: Double(x) / 260)
     }
 
     /// 見本のカレンダー（固定の並び）
     static let sampleCells: [HeatCell] = (0..<56).map { i in
         let eaten = [2, 0, 3, 1, 4, 2, 1, 0, 3, 2, 5, 1, 2, 0][i % 14]
         return HeatCell(date: Date(timeIntervalSince1970: Double(i) * 86_400), eaten: eaten, discarded: i == 23 ? 1 : 0, isFuture: false)
+    }
+}
+
+/// 段取りの帯が、左から順に伸びる見本（ループ。動きを減らす設定では止まった絵）
+private struct AnimatedBar: View {
+    let x: CGFloat
+    let w: CGFloat
+    let hands: Bool
+    let label: String
+    let delay: Double
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var grown = false
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .fill(hands ? Palette.mint : Palette.mintSoft)
+            .frame(width: reduceMotion || grown ? w : 8, height: 22)
+            .overlay(alignment: .leading) {
+                Text(label).font(.system(size: 10, design: .serif)).foregroundStyle(Palette.ink).padding(.leading, 6)
+                    .fixedSize()
+                    .opacity(reduceMotion || grown ? 1 : 0)
+            }
+            .frame(width: w, alignment: .leading)
+            .offset(x: x)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeOut(duration: 0.6).delay(0.3 + delay).repeatForever(autoreverses: false).delay(0)) { grown = true }
+            }
     }
 }

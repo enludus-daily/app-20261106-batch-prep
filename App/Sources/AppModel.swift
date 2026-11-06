@@ -20,6 +20,7 @@ final class AppModel {
 
     var tab: AppTab = .fridge
     var showPaywall = false
+    var pendingPaywall = false
     var paywallReason: PaywallReason = .menu
 
     let purchases: PurchaseStore
@@ -98,7 +99,8 @@ final class AppModel {
         cookedStepIDs = []
         shoppingChecked = []
         tab = .fridge
-        if plansCompleted == 1 && !isPro { offerPaywall(.afterFirstPlan) }
+        // 調理の全画面が閉じてから出す（PlanView の onDismiss）
+        pendingPaywall = plansCompleted == 1 && !isPro
     }
 
     // MARK: - 課金の画面（同じ日に 2 回は自動で出さない）
@@ -151,7 +153,7 @@ final class AppModel {
         case "empty":
             ledger = FridgeLedger()
         case "plan", "timeline", "cook", "shopping":
-            selectedIDs = ["nikujaga", "kinpira", "kyuri-asazuke", "saba-miso"]
+            selectedIDs = ["nikujaga", "saba-miso", "kyuri-asazuke"]
             tab = .plan
         case "planEmpty":
             tab = .plan

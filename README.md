@@ -1,36 +1,66 @@
-# daily-app-template
+# 段取り帖（作りおき段取り帖）
 
-enludus-daily で毎日作る iOS アプリ（SwiftUI）のテンプレート。テンプレートから作ったリポジトリでは、この README をそのアプリの説明に書き換える。
+週末の**作り置き**を、何品かまとめて手早く作り、作った容器を**食べきる**までを助ける iOS アプリ（SwiftUI・iPhone / iPhone Duo）。
+enludus-daily の 2026-11-06 のアプリ（記録：enludus-daily/daily-ideas#6）。
 
-## 中身
+## だれの・どんな困りごと
+- 作り置きで何品も作ると、**順番（段取り）が分からず時間がかかる**。雑誌が「2 時間で 16 品」のタイムスケジュールを手で組んで載せているほど。
+- 作ったあと、冷蔵庫の奥で**食べ忘れて捨てる**。
 
-| パス | 役割 |
-|---|---|
-| `project.yml` | XcodeGen の spec。`.xcodeproj` はコミットしない |
-| `App/Sources/`, `Tests/` | ひな形のアプリとテスト（Swift Testing） |
-| `App/Resources/` | アイコン、アクセントカラー、`PrivacyInfo.xcprivacy` |
-| `.github/workflows/ci.yml` | push / PR で daily-actions の `ios-ci.yml` を呼ぶ（40 桁の SHA で固定） |
-| `.github/workflows/testflight.yml` | 手動（workflow_dispatch）で `ios-testflight.yml` を呼ぶ（アップロードのあと内部テストに配信） |
-| `.github/workflows/asc.yml` | 手動で `ios-asc.yml` を呼ぶ（App Store Connect に名前・説明などを入れる / 最新ビルドを配信） |
-| `docs/app-store.json`, `PRIVACY.md` | App Store Connect に入れる情報、プライバシーポリシー |
-| `scripts/pin-daily-actions.sh` | daily-actions の SHA を書き換える（整備用のセッションか本人だけ。自己 CI の成功を確かめる） |
-| `scripts/new-app.sh` | 名前・表示名・枠（Bundle ID）に書き換える |
-| `scripts/preflight-push.sh`, `.githooks/pre-push` | push の前の検査（秘密・個人情報）と1日の上限 |
-| `scripts/scan-sensitive.sh` | 検査の複製（正本は daily-actions/scan/。違うと CI が警告） |
-| `scripts/make-icon.py` | アイコンを作る（Pillow） |
-| `.claude/skills/` | dev-lifecycle / dev-judgment / dev-workflow（naki0227/useful-map から取得） |
-| `CLAUDE.md`, `docs/daily-runbook.md` | 毎日のセッションの決まりと手順 |
-| `docs/app-store.md` | 審査の危険・本人がすることの記録 |
+## できること
+1. **段取り**：品を選ぶ（組み合わせ 8 つから、またはレシピ帳から）→ 手（1 本）・コンロ（1〜3 口）・レンジ・グリルの空きから、**まとめて作る順番**を計算してタイムラインに出す。「段取りで 50 分 / 1 品ずつだと 105 分」。買い物リストは同じ食材をまとめて売り場ごと。調理中は「いまの工程」「並行して進んでいるもの」「このあと」。
+2. **冷蔵庫**：作り終えると容器が棚に入る。マスキングテープのラベルに品名と「あと何日」、中身の高さが残りの食数。食べきりたい順に上から。1 食たべた・食べきった・冷凍に回す・捨てた。
+3. **記録**：食べきり率、捨てずに続いた日数、この 7 日の食数、食べきりカレンダー。
+4. **レシピ帳**：手で書いた作り置きレシピ 50 品（無料 24 品）。日持ち・冷凍の可否・工程ごとの「手／待つ」と道具つき。
+
+段取りの計算（`App/Sources/Scheduler.swift`）は、残りの工程が長い品から先に始める貪欲法。待つだけの工程（煮る・漬ける・レンジ）のあいだに、別の品の手の工程を進める。時間はめやす。
+
+## 作らなかったもの
+レシピの投稿・共有、写真、通知・ウィジェット（次の候補）、栄養計算、サーバー・ログイン・広告・解析。
+
+## 世界観・トークン
+- このアプリでは〔保存容器のマスキングテープのラベル〕が〔作った 1 品の札〕に、〔冷蔵庫の棚〕が〔今日の画面〕に、〔方眼のメモ〕が〔段取りのタイムライン〕になる。
+- 部品（`Parts.swift`）：`ContainerView`（ふた・半透明の本体・中身の高さ・目盛り・テープのラベル、少し傾ける）、`TapeShape`（両端ギザギザ）、`ShelfLine`（ガラスの棚板）、`GridPaper`（方眼 20pt・線 0.6）。
+- 色（`Theme.swift`）：mint 1 系統。accent `#A8DCCB`（L0.76）・soft `#E3F3EE`・deep `#4F8F7C`（白文字のボタンだけ）・paper `#FBFCFC`・地 `#F1F6F4`・文字 `#2E3A3F`。テープ `#F3DFA2`、今日まで・すぎた の小さな印だけ peach `#F4BBA4`。`scripts/tone-check.py` は exit 0。
+- 書体：見出しと数字はセリフ（字間を詰める）、本文はサンセリフ、小さなラベルは字間 0.6。Dynamic Type に追従。
+- ライトに固定（冷蔵庫の白と紙のラベルの世界観を保つため。StudyReel と同じ判断）。
+
+## 手応えの表
+| できごと | 動き | 振動 | 音 |
+|---|---|---|---|
+| 押す・選ぶ | ボタンが 0.97 倍に縮む。品の札が加わる（easeOut 0.25） | `.selection` | なし（台所で使うので鳴らさない） |
+| 1 つ成功（1 食たべた・工程できた） | 容器の中身が下がる・次の工程が下からフェードで入る | `.impact(light)` / `.selection` | なし |
+| 連続（工程を続けて済ませる） | 上の進み具合の線が伸び、数字が `numericText` で変わる | `.selection` | なし |
+| 失敗・できない（Pro の品・品数の上限） | 課金の画面か、上限の一文 | `.warning` | なし |
+| 完了（作り終えた・食べきった） | 容器が少し傾いて順に置かれる（spring 0.45/0.85、0.08 秒ずつ） | `.success` | なし |
+| 場面の切れ目（段取りを始める・冷蔵庫に入れる） | 全画面に切り替わる・タブが冷蔵庫に戻る | `.success` | なし |
+「視差効果を減らす」がオンなら、傾き・ずれ・スプリングを止めて値を直接変える。
+
+## 課金
+- 形：**買い切りの Pro ¥480**（非消耗型・ファミリー共有あり）。レシピの中身は増え続けないので、サブスクにしない。
+- 無料：レシピ 24 品・組み合わせ 4 つ・1 回の段取り 3 品まで（**はじめての段取りだけ 8 品まで試せる**）・食べきりカレンダー 4 週。冷蔵庫と記録は無料で無制限。
+- Pro：レシピ 26 品の束（お弁当・冷凍の素・汁の素・漬け・週末のごちそう）と組み合わせ 4 つ、1 回 8 品まで、カレンダー 1 年。
+- 課金の画面は、**はじめての段取りを作り終えた直後に 1 回だけ**と、Pro の物に触れたとき・設定から。同じ日に自動で 2 回は出さない。購入を復元あり。値段は StoreKit の `displayPrice` を出す。
+
+| アプリ | 形 | 値段 | 中身 | 出典（2026-11-06） |
+|---|---|---|---|---|
+| レピモ | サブスク | ¥300/月・¥3,000/年 | レシピ保存・献立・買い物リスト・在庫 | https://apps.apple.com/jp/app/id1663446718 |
+| DELISH KITCHEN | サブスク | ¥480/月 | レシピ動画のプレミアム | https://delishkitchen.tv/terms/premium |
+| らくらく買い物リスト | 有料アプリ | ¥500 | 買い物リストだけ | https://apps.apple.com/jp/app/id6670148376 |
+| **段取り帖** | 買い切り | **¥480** | 段取りの計算・買い物リスト・冷蔵庫の食べきり・レシピ 50 品 | — |
+
+DELISH KITCHEN の 1 か月分・レピモの 2 か月分より安く、ずっと使える。買い物リストだけのアプリと同じ値段で、段取りと食べきりまで付く。
+
+## 撮る画面
+`.github/workflows/ci.yml` の `screenshot-scenes`：launch onboarding fridgeDetail empty planEmpty plan cook shopping recipes recipe paywall settings（起動引数 `-screenshotScene <名前>`）。
 
 ## 手元（Mac）で開く
-
 ```sh
-brew install xcodegen   # CI は 2.46.0 で固定
+brew install xcodegen
 xcodegen generate
-open DailyApp.xcodeproj
+open BatchPrep.xcodeproj
 ```
+StoreKit の確認は `Configuration.storekit` をスキームに設定する。
 
 ## 版
-
-- Xcode 27.1（ランナー `xcode-27`。GitHub では Preview 扱い）、iOS 18.0 以降、iPhone だけ（iPhone Duo の内側の画面にも合わせる）、Swift 6
-- スキルの取得元：`naki0227/personal-knowledge`（Vault、private）の `templates/repo-bootstrap/.claude/skills/` を、本人の整備用セッションで写す（2026-11-05 に app-quality-bar を追加）
+Xcode 27.1、iOS 18.0 以降、iPhone だけ（iPhone Duo の内側では TabView がサイドバーになり、冷蔵庫と詳細・タイムラインと工程を左右に並べる）、Swift 6。外部の依存なし。
