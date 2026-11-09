@@ -122,6 +122,7 @@ private struct RunContent: View {
                 goalCard
             }
             runningList
+            nextUp
             Spacer(minLength: 0)
             mainButton
         }
@@ -269,6 +270,28 @@ private struct RunContent: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .panel(padding: 14)
+        }
+    }
+
+    /// このあと（次の 2 歩）
+    @ViewBuilder
+    private var nextUp: some View {
+        let upcoming = Array(route.dropFirst(index + 1).prefix(sizeClass == .regular ? 0 : 2))
+        if !upcoming.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("このあと").smallLabel()
+                ForEach(upcoming) { step in
+                    HStack(spacing: 10) {
+                        if let recipe = RecipeBook.recipe(step.planned.recipeID) { DishIcon(recipe: recipe, size: 24) }
+                        Text(step.planned.step.text).font(.system(size: 13)).foregroundStyle(Palette.ink).lineLimit(1)
+                        Spacer(minLength: 4)
+                        Text(Clock.text(step.checkpointMinutes * 60)).font(.system(size: 12, design: .serif)).monospacedDigit()
+                            .foregroundStyle(Palette.sub)
+                    }
+                }
+            }
+            .padding(.horizontal, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

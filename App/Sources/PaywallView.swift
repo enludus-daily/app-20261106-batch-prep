@@ -41,9 +41,9 @@ struct PaywallView: View {
                 feature(title: "レシピ \(RecipeBook.all.count) 品と組み合わせ 8 つ",
                         detail: "無料の \(RecipeBook.all.filter { !$0.isPro }.count) 品に、お弁当・冷凍の素・汁の素・漬け・週末のごちそうの \(RecipeBook.all.filter(\.isPro).count) 品。1 回のランに 8 品まで（無料は 3 品）。") {
                     HStack(spacing: -10) {
-                        DishIcon(vessel: .bento, tone: .egg, garnish: .leaf, size: 30)
-                        DishIcon(vessel: .bag, tone: .meat, garnish: .dots, size: 30)
-                        DishIcon(vessel: .cup, tone: .veg, garnish: .slices, size: 30)
+                        DishIcon(vessel: .bento, tone: .egg, topping: .eggs, size: 30)
+                        DishIcon(vessel: .bag, tone: .meat, topping: .chunks, size: 30)
+                        DishIcon(vessel: .cup, tone: .veg, topping: .leaves, size: 30)
                     }
                 }
                 feature(title: "全部のランとスプリットを見返す",
@@ -53,8 +53,6 @@ struct PaywallView: View {
 
                 Text("お試し：はじめてのランは 8 品まで、ゴーストは 1 回だけ無料で使えます。")
                     .font(.system(size: 12)).foregroundStyle(Palette.skyDeep)
-
-                priceBlock
 
                 Button("購入を復元") {
                     Task {
@@ -76,6 +74,14 @@ struct PaywallView: View {
             .padding(20)
             .frame(maxWidth: 560)
             .frame(maxWidth: .infinity)
+        }
+        .safeAreaInset(edge: .bottom) {
+            priceBlock
+                .frame(maxWidth: 520)
+                .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 8)
+                .frame(maxWidth: .infinity)
+                .background(Palette.ground.opacity(0.96).ignoresSafeArea())
+                .overlay(alignment: .top) { Rectangle().fill(Palette.line).frame(height: 0.6) }
         }
         .background(Palette.ground.ignoresSafeArea())
         .sensoryFeedback(trigger: boughtTick) { _, _ in model.hapticsOn ? .success : nil }
@@ -99,7 +105,7 @@ struct PaywallView: View {
 
     private func priceLine(_ price: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(price).font(Typo.number(36)).kerning(-1.5).foregroundStyle(Palette.ink)
+            Text(price).font(Typo.number(30)).kerning(-1.2).foregroundStyle(Palette.ink)
             Text("買い切り・ずっと").font(Typo.small).foregroundStyle(Palette.sub)
         }
     }
@@ -107,11 +113,13 @@ struct PaywallView: View {
     @ViewBuilder
     private var priceBlock: some View {
         if model.isPro {
-            Text("Pro をお使いいただいています。ありがとうございます。")
-                .font(Typo.serif(.headline)).foregroundStyle(Palette.skyDeep)
-            Button("閉じる") { dismiss() }.buttonStyle(PrimaryButtonStyle())
+            VStack(spacing: 8) {
+                Text("Pro をお使いいただいています。ありがとうございます。")
+                    .font(Typo.serif(.headline)).foregroundStyle(Palette.skyDeep)
+                Button("閉じる") { dismiss() }.buttonStyle(PrimaryButtonStyle())
+            }
         } else if let product {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 priceLine(product.displayPrice)
                 Button(working ? "購入しています…" : "Pro にする") {
                     Task {

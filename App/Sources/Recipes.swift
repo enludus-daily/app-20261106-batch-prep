@@ -73,11 +73,11 @@ struct Recipe: Identifiable, Hashable, Sendable {
     let isPro: Bool
     let ingredients: [Ingredient]
     let steps: [RecipeStep]
-    /// 同じ器の品どうしを見分ける上の飾り（RecipeBook が分類ごとに順に振る）
-    var garnish: Garnish = .dots
 
     var totalMinutes: Int { steps.reduce(0) { $0 + $1.minutes } }
     var handsMinutes: Int { steps.filter(\.hands).reduce(0) { $0 + $1.minutes } }
+
+    var topping: Topping { Topping.of(name: name, ingredients: ingredients.map(\.name)) }
 
     /// 器の中身の色：はじめに出てくる肉・野菜・卵の材料で決める
     var foodTone: FoodTone {
@@ -101,7 +101,30 @@ enum Vessel: String, Sendable, CaseIterable {
 
 enum FoodTone: Sendable { case meat, veg, egg }
 
-enum Garnish: Sendable, Hashable, CaseIterable { case dots, slices, leaf, drizzle }
+/// 器の上に描く具の形（品の名前と材料から決める。同じ器でも品が見分けられる）
+enum Topping: String, Sendable, Hashable, CaseIterable {
+    case mince, fillet, balls, eggs, leaves, sticks, rounds, chunks
+
+    var words: [String] {
+        switch self {
+        case .mince: ["そぼろ", "キーマ", "ミートソース", "フレーク", "炒り卵", "卯の花", "おから"]
+        case .fillet: ["さば", "鮭", "ぶり", "ちくわ"]
+        case .balls: ["つくね", "ハンバーグ", "しゅうまい", "みそ玉"]
+        case .eggs: ["卵", "たまご"]
+        case .leaves: ["ほうれん草", "小松菜", "白菜", "キャベツ", "おひたし", "ひじき", "ねぎ"]
+        case .sticks: ["きんぴら", "ごぼう", "にんじん", "切り干し", "いんげん", "きゅうり", "ピクルス", "ラペ", "ピーマン"]
+        case .rounds: ["かぼちゃ", "じゃが", "トマト", "なす", "ブロッコリー", "きのこ", "かぶ", "いも", "大根", "ポテト", "高野豆腐", "れんこん"]
+        case .chunks: ["鶏", "豚", "牛", "肉", "角煮", "チャーシュー", "ハム"]
+        }
+    }
+
+    /// 名前に出てくる言葉を先に見て、なければ材料で決める
+    static func of(name: String, ingredients: [String]) -> Topping {
+        if let hit = allCases.first(where: { t in t.words.contains { name.contains($0) } }) { return hit }
+        let all = ingredients.joined()
+        return allCases.first(where: { t in t.words.contains { all.contains($0) } }) ?? .chunks
+    }
+}
 
 extension RecipeCategory {
     var vessel: Vessel {
@@ -173,17 +196,7 @@ enum RecipeParser {
 
 enum RecipeBook {
     /// 手で書いたデータ。読めなければテストで落ちる（ここでは空にして画面を落とさない）
-    static let all: [Recipe] = {
-        let parsed = (try? RecipeParser.parse(RecipeData.text)) ?? []
-        var counts: [RecipeCategory: Int] = [:]
-        return parsed.map { recipe in
-            var recipe = recipe
-            let n = counts[recipe.category, default: 0]
-            recipe.garnish = Garnish.allCases[n % Garnish.allCases.count]
-            counts[recipe.category] = n + 1
-            return recipe
-        }
-    }()
+    static let all: [Recipe] = (try? RecipeParser.parse(RecipeData.text)) ?? []
 
     static func recipe(_ id: String) -> Recipe? { all.first { $0.id == id } }
 

@@ -81,7 +81,7 @@ struct CategoryChips: View {
             withAnimation(.easeOut(duration: 0.2)) { selection = value }
         } label: {
             HStack(spacing: 4) {
-                if let vessel { DishIcon(vessel: vessel, tone: .veg, garnish: .dots, size: 20) }
+                if let vessel { DishIcon(vessel: vessel, tone: .veg, topping: .chunks, size: 20) }
                 Text(title).font(.system(.footnote, weight: on ? .semibold : .regular))
             }
             .foregroundStyle(on ? Palette.skyDeep : Palette.ink)

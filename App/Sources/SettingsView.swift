@@ -68,9 +68,9 @@ struct SettingsView: View {
         } label: {
             HStack(spacing: 14) {
                 HStack(spacing: -12) {
-                    DishIcon(vessel: .bento, tone: .egg, garnish: .leaf, size: 40)
-                    DishIcon(vessel: .bag, tone: .meat, garnish: .dots, size: 40)
-                    DishIcon(vessel: .cup, tone: .veg, garnish: .slices, size: 40)
+                    DishIcon(vessel: .bento, tone: .egg, topping: .eggs, size: 40)
+                    DishIcon(vessel: .bag, tone: .meat, topping: .chunks, size: 40)
+                    DishIcon(vessel: .cup, tone: .veg, topping: .leaves, size: 40)
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text(model.isPro ? "Pro をお使いです" : "段取りラン Pro").font(Typo.serif(.headline)).foregroundStyle(Palette.ink)

@@ -395,7 +395,7 @@ struct LookTests {
 
     @Test func dishesInACategoryAreNotAllDrawnTheSame() {
         for category in RecipeCategory.allCases {
-            let looks = RecipeBook.all.filter { $0.category == category }.map { "\($0.foodTone)-\($0.garnish)" }
+            let looks = RecipeBook.all.filter { $0.category == category }.map(\.topping)
             if looks.count >= 4 { #expect(Set(looks).count >= 3, "\(category) の器の絵が見分けにくい") }
         }
     }
