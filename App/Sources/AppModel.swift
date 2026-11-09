@@ -6,7 +6,7 @@ import SwiftUI
 @MainActor
 @Observable
 final class AppModel {
-    var ledger = FridgeLedger() { didSet { save() } }
+    var ledger = FridgeLedger() { didSet { save(); refreshEveningNote() } }
     /// コースに選んだ品（選んだ順。番号はこの順）
     var selectedIDs: [String] = [] { didSet { save() } }
     var kitchen = KitchenSetup() { didSet { save() } }
@@ -18,6 +18,9 @@ final class AppModel {
     var onboardingDone = false { didSet { save() } }
     var paywallShownDay: String? { didSet { save() } }
     var ghostTrialsLeft = ProRules.freeGhostTrials { didSet { save() } }
+    /// 通知（待つ工程が終わったとき・夕方の食べきり）
+    var remindersOn = false { didSet { save(); refreshEveningNote() } }
+    var reminderStatus: ReminderStatus = .unknown
 
     var tab: AppTab = .run
     var showRun = false
@@ -58,6 +61,7 @@ final class AppModel {
             onboardingDone = saved.onboardingDone
             paywallShownDay = saved.paywallShownDay
             ghostTrialsLeft = saved.ghostTrialsLeft
+            remindersOn = saved.remindersOn ?? false
         } else {
             putSamples()
         }
@@ -121,6 +125,46 @@ final class AppModel {
         if ghost && !isPro { ghostTrialsLeft = max(0, ghostTrialsLeft - 1) }
         session = RunSession(startedAt: now, recipeIDs: selectedIDs, kitchen: kitchen, ghost: ghost)
         showRun = true
+        // はじめてのランで、待つ工程が終わったら知らせてよいかを 1 回だけ聞く
+        if !remindersOn && reminderStatus != .denied && screenshotScene == nil {
+            Task { @MainActor in
+                let status = await Reminders.request()
+                self.reminderStatus = status
+                if status == .allowed { self.remindersOn = true }
+            }
+        }
+    }
+
+    // MARK: - 通知
+
+    func refreshReminderStatus() async {
+        guard screenshotScene == nil else { return }
+        reminderStatus = await Reminders.status()
+    }
+
+    func setReminders(_ on: Bool) async {
+        if on {
+            let status = await Reminders.request()
+            reminderStatus = status
+            remindersOn = status == .allowed
+        } else {
+            remindersOn = false
+        }
+    }
+
+    /// 夕方 18 時の「今日食べきりたい品」を、いまの冷蔵庫で予約し直す
+    func refreshEveningNote() {
+        guard !loading, screenshotScene == nil else { return }
+        Reminders.cancel([Reminders.dailyID])
+        guard remindersOn else { return }
+        let fire = EveningNote.nextFire(after: now, calendar: calendar)
+        guard let body = EveningNote.body(ledger: ledger, on: fire, calendar: calendar) else { return }
+        Reminders.schedule(id: Reminders.dailyID, title: "冷蔵庫", body: body, at: fire, now: now)
+    }
+
+    private func cancelWaitNotes() {
+        guard let plan = sessionPlan else { return }
+        Reminders.cancel(RunMath.route(plan).map(Reminders.waitID))
     }
 
     /// 今の工程を押した（できた／仕掛けた）
@@ -131,16 +175,25 @@ final class AppModel {
         let elapsed = current.elapsed(at: now)
         current.taps.append(max(elapsed, current.taps.last ?? 0))
         session = current
+        let step = route[current.taps.count - 1]
+        if step.isWait && remindersOn && screenshotScene == nil {
+            let end = current.startedAt.addingTimeInterval(Double((current.taps.last ?? 0) + step.planned.step.minutes * 60))
+            Reminders.schedule(id: Reminders.waitID(step), title: step.planned.recipeName,
+                               body: "「\(step.planned.step.text)」の時間です。", at: end, now: now)
+        }
     }
 
     /// 1 つ前に戻す（押しまちがい）
     func undoTap() {
-        guard var current = session, !current.taps.isEmpty else { return }
+        guard var current = session, !current.taps.isEmpty, let plan = sessionPlan else { return }
+        let route = RunMath.route(plan)
         current.taps.removeLast()
+        if current.taps.count < route.count { Reminders.cancel([Reminders.waitID(route[current.taps.count])]) }
         session = current
     }
 
     func abandonRun() {
+        cancelWaitNotes()
         session = nil
         showRun = false
     }
@@ -156,6 +209,7 @@ final class AppModel {
         let recipes = current.recipeIDs.compactMap(RecipeBook.recipe)
         let record = RunMath.makeRecord(session: finished, plan: plan, route: route, finishedAt: max(seconds, 1),
                                         date: now, names: recipes.map(\.name))
+        cancelWaitNotes()
         ledger.items.removeAll(where: \.isSample)
         ledger.put(recipes, on: today, calendar: calendar, runID: record.id)
         runs.append(record)
@@ -312,7 +366,8 @@ final class AppModel {
         guard !loading, screenshotScene == nil else { return }
         let state = SavedState(ledger: ledger, selectedIDs: selectedIDs, kitchen: kitchen, runs: runs, session: session,
                                shoppingChecked: shoppingChecked, hapticsOn: hapticsOn, onboardingDone: onboardingDone,
-                               paywallShownDay: paywallShownDay, ghostTrialsLeft: ghostTrialsLeft)
+                               paywallShownDay: paywallShownDay, ghostTrialsLeft: ghostTrialsLeft,
+                               remindersOn: remindersOn)
         if let data = try? JSONEncoder().encode(state) { defaults.set(data, forKey: Self.storageKey) }
     }
 }
@@ -328,6 +383,7 @@ struct SavedState: Codable {
     var onboardingDone: Bool
     var paywallShownDay: String?
     var ghostTrialsLeft: Int
+    var remindersOn: Bool?
 }
 
 enum AppTab: Hashable { case run, fridge, recipes }

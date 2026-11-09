@@ -422,3 +422,33 @@ struct LookTests {
         #expect(Clock.delta(45) == "+0:45")
     }
 }
+
+struct ComboAndNoteTests {
+    @Test func comboCountsTrailingOnTimeTaps() {
+        let a = recipe("a", [step(10, hands: true), step(5, hands: true), step(5, hands: true)])
+        let route = RunMath.route(Scheduler.plan([a]))   // 目安 600・900・1200 秒
+        #expect(RunMath.combo(route: route, taps: []) == 0)
+        #expect(RunMath.combo(route: route, taps: [590, 880]) == 2)
+        #expect(RunMath.combo(route: route, taps: [590, 880, 1_260]) == 0)   // 遅れると途切れる
+        #expect(RunMath.combo(route: route, taps: [700, 880, 1_190]) == 2)
+    }
+
+    @Test func eveningNoteFiresAtSixAndNamesTodaysDish() {
+        let morning = tokyo.date(from: DateComponents(year: 2026, month: 11, day: 9, hour: 9))!
+        let night = tokyo.date(from: DateComponents(year: 2026, month: 11, day: 9, hour: 20))!
+        #expect(tokyo.component(.hour, from: EveningNote.nextFire(after: morning, calendar: tokyo)) == 18)
+        #expect(tokyo.component(.day, from: EveningNote.nextFire(after: morning, calendar: tokyo)) == 9)
+        #expect(tokyo.component(.day, from: EveningNote.nextFire(after: night, calendar: tokyo)) == 10)
+
+        var ledger = FridgeLedger()
+        #expect(EveningNote.body(ledger: ledger, on: night, calendar: tokyo) == nil)
+        let short = Recipe(id: "s", name: "浅漬け", category: .pickle, portions: 2, keepsDays: 1, freezable: false, isPro: false,
+                           ingredients: [], steps: [])
+        let long = Recipe(id: "l", name: "ピクルス", category: .pickle, portions: 2, keepsDays: 7, freezable: false, isPro: false,
+                          ingredients: [], steps: [])
+        ledger.put([long], on: day(2026, 11, 9), calendar: tokyo)
+        #expect(EveningNote.body(ledger: ledger, on: night, calendar: tokyo) == nil)
+        ledger.put([short], on: day(2026, 11, 9), calendar: tokyo)
+        #expect(EveningNote.body(ledger: ledger, on: night, calendar: tokyo) == "浅漬けを、今日食べきりたい日です。")
+    }
+}

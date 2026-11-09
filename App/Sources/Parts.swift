@@ -64,16 +64,16 @@ private struct DishPainter {
         switch vessel {
         case .plate:
             // 浅い深皿：楕円の皿に、こんもりした主菜
-            let plate = Path(ellipseIn: r(0.04, 0.5, 0.92, 0.34))
+            let plate = Path(ellipseIn: r(0.03, 0.42, 0.94, 0.38))
             context.fill(plate, with: .color(Palette.card))
             context.stroke(plate, with: .color(outline), style: stroke)
-            context.stroke(Path(ellipseIn: r(0.2, 0.57, 0.6, 0.18)), with: .color(Palette.line), style: stroke)
+            context.stroke(Path(ellipseIn: r(0.18, 0.5, 0.64, 0.22)), with: .color(Palette.line), style: stroke)
             var mound = Path()
-            mound.move(to: p(0.22, 0.66))
-            mound.addQuadCurve(to: p(0.78, 0.66), control: p(0.5, 0.2))
-            mound.addQuadCurve(to: p(0.22, 0.66), control: p(0.5, 0.76))
+            mound.move(to: p(0.2, 0.6))
+            mound.addQuadCurve(to: p(0.8, 0.6), control: p(0.5, 0.16))
+            mound.addQuadCurve(to: p(0.2, 0.6), control: p(0.5, 0.72))
             context.fill(mound, with: .color(food.opacity(0.5)))
-            center = p(0.5, 0.56)
+            center = p(0.5, 0.5)
         case .bowl:
             // 小鉢：丸い鉢から副菜が少し盛り上がる
             context.fill(Path(ellipseIn: r(0.2, 0.3, 0.6, 0.34)), with: .color(food.opacity(0.5)))

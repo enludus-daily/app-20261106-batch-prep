@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct BatchPrepApp: App {
     @State private var model = AppModel()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -12,6 +13,10 @@ struct BatchPrepApp: App {
                 .preferredColorScheme(.light)
                 .tint(Palette.skyDeep)
                 .task { await model.purchases.load() }
+                .onChange(of: scenePhase) { _, phase in
+                    // 開くたびに、夕方のお知らせを今の冷蔵庫で予約し直す
+                    if phase == .active { model.refreshEveningNote() }
+                }
         }
     }
 }

@@ -166,6 +166,16 @@ enum RunMath {
         return taps[index] - route[index].checkpointMinutes * 60
     }
 
+    /// コンボ：最後から続けて目安以内に押した数
+    static func combo(route: [RouteStep], taps: [Int]) -> Int {
+        var count = 0
+        for index in stride(from: taps.count - 1, through: 0, by: -1) {
+            guard let delta = splitDelta(route: route, taps: taps, index: index), delta <= 0 else { break }
+            count += 1
+        }
+        return count
+    }
+
     /// 自己ベストのゴースト：最後に押した工程を、自己ベストのときより何秒早く（負）・遅く押したか
     static func ghostDelta(best: RunRecord?, taps: [Int]) -> Int? {
         guard let best, let last = taps.last, taps.count <= best.splits.count else { return nil }

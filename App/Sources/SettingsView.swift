@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// 設定：Pro・台所・手応え・使い方・データ。素のリストにせず、ほかの画面と同じ面で組む
 struct SettingsView: View {
@@ -22,6 +23,25 @@ struct SettingsView: View {
                 group("手応え") {
                     row(glyph: .hands, title: "振動", detail: "工程を押したとき・待つ工程が終わったとき") {
                         Toggle("振動", isOn: $model.hapticsOn).labelsHidden().tint(Palette.skyDeep)
+                    }
+                }
+                group("お知らせ") {
+                    row(glyph: .wait(0), title: "待つ工程の終わり・夕方の食べきり",
+                        detail: "煮る・漬けるが終わる時刻と、18 時に今日食べきりたい品（ある日だけ）") {
+                        Toggle("お知らせ", isOn: Binding(get: { model.remindersOn }, set: { on in Task { await model.setReminders(on) } }))
+                            .labelsHidden().tint(Palette.skyDeep)
+                    }
+                    if model.reminderStatus == .denied {
+                        divider
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("通知が許可されていません。設定アプリの「段取りラン」>「通知」から許可できます。ランも記録も、通知なしでそのまま使えます。")
+                                .font(.system(size: 12)).foregroundStyle(Palette.sub).fixedSize(horizontal: false, vertical: true)
+                            Button("設定アプリを開く") {
+                                if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                            }
+                            .font(.system(.footnote, weight: .medium)).foregroundStyle(Palette.skyDeep).frame(minHeight: 44)
+                        }
+                        .padding(.vertical, 6)
                     }
                 }
                 group("使い方") {
@@ -56,6 +76,7 @@ struct SettingsView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) { Button("閉じる") { dismiss() } }
         }
+        .task { await model.refreshReminderStatus() }
         .confirmationDialog("ランの記録・冷蔵庫・コースを全部消します。元に戻せません。", isPresented: $askReset, titleVisibility: .visible) {
             Button("消す", role: .destructive) { model.resetAll() }
         }

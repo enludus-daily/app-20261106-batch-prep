@@ -39,6 +39,7 @@ private struct RunContent: View {
     private var current: RouteStep? { index < route.count ? route[index] : nil }
     private var running: [RunningWait] { RunMath.running(route: route, taps: session.taps, now: elapsed) }
     private var best: RunRecord? { session.ghost ? model.sessionBest : nil }
+    private var combo: Int { RunMath.combo(route: route, taps: session.taps) }
 
     /// 目安との差：最後に押した工程の差。今の工程が目安を過ぎていれば、その遅れ
     private var parDelta: Int? {
@@ -89,7 +90,13 @@ private struct RunContent: View {
         }
         .sensoryFeedback(trigger: index) { old, new in
             guard model.hapticsOn else { return nil }
-            return new > old ? .impact(weight: .medium, intensity: 0.8) : .selection
+            return new > old ? .impact(weight: .light, intensity: 0.7) : .selection
+        }
+        .sensoryFeedback(trigger: combo) { old, new in
+            guard model.hapticsOn else { return nil }
+            if new >= 2 && new > old { return .impact(weight: .heavy, intensity: min(1, 0.6 + Double(new) * 0.1)) }
+            if old >= 2 && new == 0 { return .warning }
+            return nil
         }
         .sensoryFeedback(trigger: running.count) { old, new in
             model.hapticsOn && new < old ? .success : nil
@@ -173,6 +180,16 @@ private struct RunContent: View {
                 if session.ghost, model.sessionBest != nil {
                     pill(title: "自己ベスト", value: ghostDelta, fallback: Clock.text(model.sessionBest?.seconds ?? 0), ghost: true)
                 }
+            }
+            if combo >= 2 {
+                Text("目安内 ×\(combo)")
+                    .font(.system(size: 13, weight: .semibold, design: .serif)).monospacedDigit()
+                    .foregroundStyle(Palette.peachInk)
+                    .padding(.horizontal, 12).padding(.vertical, 4)
+                    .background(Capsule().fill(Palette.peachSoft))
+                    .id(combo)
+                    .transition(reduceMotion ? .opacity : .scale(scale: 1.4).combined(with: .opacity))
+                    .accessibilityLabel("目安内の連続 \(combo)")
             }
         }
         .padding(.top, 4)
