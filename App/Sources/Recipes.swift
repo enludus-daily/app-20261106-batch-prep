@@ -73,9 +73,47 @@ struct Recipe: Identifiable, Hashable, Sendable {
     let isPro: Bool
     let ingredients: [Ingredient]
     let steps: [RecipeStep]
+    /// 同じ器の品どうしを見分ける上の飾り（RecipeBook が分類ごとに順に振る）
+    var garnish: Garnish = .dots
 
     var totalMinutes: Int { steps.reduce(0) { $0 + $1.minutes } }
     var handsMinutes: Int { steps.filter(\.hands).reduce(0) { $0 + $1.minutes } }
+
+    /// 器の中身の色：はじめに出てくる肉・野菜・卵の材料で決める
+    var foodTone: FoodTone {
+        for ingredient in ingredients {
+            switch ingredient.aisle {
+            case .meat: return .meat
+            case .veg: return .veg
+            case .egg: return .egg
+            case .dry, .season: continue
+            }
+        }
+        return .veg
+    }
+
+}
+
+/// 品の印になる器（分類ごとに違う形。DishIcon が描く）
+enum Vessel: String, Sendable, CaseIterable {
+    case plate, bowl, jar, cup, bento, bag
+}
+
+enum FoodTone: Sendable { case meat, veg, egg }
+
+enum Garnish: Sendable, Hashable, CaseIterable { case dots, slices, leaf, drizzle }
+
+extension RecipeCategory {
+    var vessel: Vessel {
+        switch self {
+        case .main: .plate
+        case .side: .bowl
+        case .pickle: .jar
+        case .soup: .cup
+        case .bento: .bento
+        case .freeze: .bag
+        }
+    }
 }
 
 enum RecipeParseError: Error, Equatable {
@@ -135,7 +173,17 @@ enum RecipeParser {
 
 enum RecipeBook {
     /// 手で書いたデータ。読めなければテストで落ちる（ここでは空にして画面を落とさない）
-    static let all: [Recipe] = (try? RecipeParser.parse(RecipeData.text)) ?? []
+    static let all: [Recipe] = {
+        let parsed = (try? RecipeParser.parse(RecipeData.text)) ?? []
+        var counts: [RecipeCategory: Int] = [:]
+        return parsed.map { recipe in
+            var recipe = recipe
+            let n = counts[recipe.category, default: 0]
+            recipe.garnish = Garnish.allCases[n % Garnish.allCases.count]
+            counts[recipe.category] = n + 1
+            return recipe
+        }
+    }()
 
     static func recipe(_ id: String) -> Recipe? { all.first { $0.id == id } }
 

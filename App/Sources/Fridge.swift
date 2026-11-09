@@ -12,6 +12,8 @@ struct FridgeItem: Identifiable, Codable, Hashable, Sendable {
     var left: Int
     var frozen: Bool = false
     var isSample: Bool = false
+    /// どのランで作ったか（食べきったら、そのランが「完走」）
+    var runID: UUID?
 }
 
 enum Freshness: Equatable, Sendable {
@@ -67,6 +69,8 @@ struct FridgeLedger: Codable, Equatable, Sendable {
     /// 記録を始めた日（捨てずに続いた日数の起点）
     var startedOn: Date?
     var lastDiscardOn: Date?
+    /// 捨てたものがあるラン
+    var spoiledRuns: Set<UUID> = []
 
     static let frozenKeepsDays = 30
 
@@ -93,13 +97,19 @@ struct FridgeLedger: Codable, Equatable, Sendable {
         }
     }
 
-    mutating func put(_ recipes: [Recipe], on date: Date, calendar: Calendar) {
+    mutating func put(_ recipes: [Recipe], on date: Date, calendar: Calendar, runID: UUID? = nil) {
         let day = calendar.startOfDay(for: date)
         if startedOn == nil { startedOn = day }
         for recipe in recipes {
             items.append(FridgeItem(recipeID: recipe.id, name: recipe.name, madeOn: day, keepsDays: recipe.keepsDays,
-                                    portions: recipe.portions, left: recipe.portions))
+                                    portions: recipe.portions, left: recipe.portions, runID: runID))
         }
+    }
+
+    /// そのランで作った品を食べきったか
+    func status(ofRun id: UUID) -> EatStatus {
+        if spoiledRuns.contains(id) { return .spoiled }
+        return items.contains { $0.runID == id } ? .eating : .cleared
     }
 
     /// 1 食食べた。食べきったら容器を出す
@@ -120,6 +130,7 @@ struct FridgeLedger: Codable, Equatable, Sendable {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         let item = items.remove(at: index)
         guard !item.isSample else { return }
+        if let run = item.runID { spoiledRuns.insert(run) }
         logs[DayKey.key(date, calendar: calendar), default: DayLog()].discarded += item.left
         lastDiscardOn = calendar.startOfDay(for: date)
     }
@@ -189,17 +200,3 @@ struct HeatCell: Hashable, Sendable {
     }
 }
 
-/// 無料と Pro の境目（画面から切り離してテストする）
-enum ProRules {
-    static let freeDishLimit = 3
-    static let proDishLimit = 8
-    static let freeHeatmapWeeks = 4
-    static let proHeatmapWeeks = 52
-
-    /// 1 回目の段取りは、品数の制限なしで試せる
-    static func dishLimit(isPro: Bool, plansCompleted: Int) -> Int {
-        isPro || plansCompleted == 0 ? proDishLimit : freeDishLimit
-    }
-
-    static func canUse(_ recipe: Recipe, isPro: Bool) -> Bool { isPro || !recipe.isPro }
-}

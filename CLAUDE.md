@@ -1,10 +1,11 @@
 # CLAUDE.md（enludus-daily のアプリ）
 
 このリポジトリは、enludus-daily で毎日1本作る iOS アプリ（SwiftUI）の1つ。**public**。
-手順は `docs/daily-runbook.md`、開発の考え方は `.claude/skills/`（dev-lifecycle / dev-judgment / dev-workflow）、**画面と中身の基準は `app-quality-bar`**（見た目は StudyReel のトーン、ゲームの手応えと中身の厚さは五十音マインスイーパー。届かなければ完成にしない）。
+手順は `docs/daily-runbook.md`、開発の考え方は `.claude/skills/`（dev-lifecycle / dev-judgment / dev-workflow）、**題材は `idea-fusion`（悩み × エンタメ / エンタメ × エンタメ）、画面の参考は `ui-reference`（StudyReel と流行りのアプリ）、画面と中身と課金の基準は `app-quality-bar`**（見た目は StudyReel のトーン、ゲームの手応えと中身の厚さは五十音マインスイーパー。届かなければ完成にしない）。
 
 ## スキルの読み替え（このリポジトリでは、ここが優先）
 
+- **監督の指示（daily-ideas の `director` ラベルの Issue）が、手順書・スキルより優先する**（本人が指揮を任せた。2026-11-09）。下の「してはいけないこと」「上限と止まる条件」はいつも最優先。
 - **Vault（personal-knowledge）は使わない。** セッションに付けない方針。スキルの「Vault を読む・更新する」は飛ばし、報告には「Vault: 対象外（daily のセッションには付けない）」と書く。
 - **付けてよいリポジトリは2つだけ：** `enludus-daily/daily-ideas` と、その日のアプリのリポジトリ。個人のリポジトリ・`daily-actions`・`daily-app-template` は付けない（テンプレートは public の `git clone` で読むだけ）。
 - **daily-actions（CI・上限のガード・検査）は直さない。** 直すのは本人が始める整備用のセッションか、本人がそのセッションで明示的に許したときだけ。アプリのワークフローの `@<SHA>` と `actions-sha` も、同じ条件でだけ変える（`scripts/pin-daily-actions.sh` を使い、その SHA で daily-actions の自己 CI が通っていることを確かめる）。

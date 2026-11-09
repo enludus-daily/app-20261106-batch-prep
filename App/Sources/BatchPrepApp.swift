@@ -8,41 +8,53 @@ struct BatchPrepApp: App {
         WindowGroup {
             RootView()
                 .environment(model)
-                // 冷蔵庫の白と紙のラベルの世界観を保つため、ライトに固定する（StudyReel と同じ判断）
+                // 淡い水色と白の世界観を保つため、ライトに固定する（StudyReel と同じ判断）
                 .preferredColorScheme(.light)
-                .tint(Palette.mintDeep)
+                .tint(Palette.skyDeep)
                 .task { await model.purchases.load() }
         }
     }
 }
 
-/// 3 つの場所（冷蔵庫・段取り・レシピ帳）と設定。iPhone Duo の内側では TabView がサイドバーにもなる
+/// iOS 26 の標準のタブ（下に浮いたガラスのタブバー）。ラン・冷蔵庫・レシピの 3 つ
 struct RootView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
         @Bindable var model = model
-        Group {
+        ZStack {
+            Palette.ground.ignoresSafeArea()
             if model.onboardingDone {
                 TabView(selection: $model.tab) {
-                    Tab("冷蔵庫", systemImage: "refrigerator", value: AppTab.fridge) { FridgeView() }
-                    Tab("段取り", systemImage: "list.bullet.rectangle", value: AppTab.plan) { PlanView() }
-                    Tab("レシピ帳", systemImage: "book", value: AppTab.recipes) {
+                    Tab("ラン", systemImage: "stopwatch", value: AppTab.run) {
+                        NavigationStack { RunHomeView() }
+                    }
+                    Tab("冷蔵庫", systemImage: "refrigerator", value: AppTab.fridge) {
+                        NavigationStack { FridgeView() }
+                    }
+                    Tab("レシピ", systemImage: "fork.knife", value: AppTab.recipes) {
                         NavigationStack { RecipeBookView() }
                     }
-                    Tab("設定", systemImage: "gearshape", value: AppTab.settings) { SettingsView() }
                 }
-                .tabViewStyle(.sidebarAdaptable)
+                .tabBarMinimizeBehavior(.onScrollDown)
                 .transition(.opacity)
             } else {
                 OnboardingView().transition(.opacity)
             }
         }
-        .sheet(isPresented: $model.showPaywall) {
-            PaywallView().presentationBackground(Palette.ground)
+        .fullScreenCover(isPresented: $model.showRun) {
+            RunView()
+                .environment(model)
         }
-        .onAppear {
-            if model.screenshotScene == "settings" { model.tab = .settings }
+        .sheet(item: $model.result, onDismiss: { model.closeResult() }) { record in
+            ResultView(record: record)
+                .environment(model)
+                .presentationBackground(Palette.ground)
+        }
+        .sheet(isPresented: $model.showPaywall) {
+            PaywallView()
+                .environment(model)
+                .presentationBackground(Palette.ground)
         }
     }
 }

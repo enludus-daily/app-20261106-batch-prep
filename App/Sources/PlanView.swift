@@ -1,370 +1,355 @@
 import SwiftUI
 
-/// ② 段取り：品を選ぶ → 買い物リスト → タイムライン → 調理
+/// コース：選んだ品・目安・タイムライン・ルート。下に「スタート」を固定（スクロールしなくても押せる）
 struct PlanView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.horizontalSizeClass) private var sizeClass
-    @State private var picking = false
-    @State private var shopping = false
-    @State private var cooking = false
-    @State private var lockedTick = 0
+    @State private var showPicker = false
+    @State private var showShopping = false
+    @State private var tick = 0
 
     var body: some View {
+        let recipes = model.selectedRecipes
         let plan = model.plan
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Heading(kicker: "Batch plan", title: model.selectedIDs.isEmpty ? "今週は、なにを作る？" : "\(model.selectedIDs.count) 品の段取り")
-                if model.selectedIDs.isEmpty {
-                    presets
-                } else if sizeClass == .regular {
-                    HStack(alignment: .top, spacing: 20) {
-                        VStack(alignment: .leading, spacing: 20) {
-                            dishes
-                            summary(plan)
-                            actions
+        Group {
+            if recipes.isEmpty {
+                ScrollView { emptyState.padding(20).frame(maxWidth: 640).frame(maxWidth: .infinity) }
+            } else if sizeClass == .regular {
+                HStack(alignment: .top, spacing: 20) {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            timelinePanel(plan, recipes: recipes)
+                            routeList(plan)
                         }
-                        .frame(width: 330)
-                        VStack(alignment: .leading, spacing: 20) {
-                            TimelineChart(plan: plan, order: model.selectedIDs, kitchen: model.kitchen)
-                            StepList(plan: plan, order: model.selectedIDs)
-                        }
+                        .padding(20)
                     }
-                } else {
-                    dishes
-                    summary(plan)
-                    TimelineChart(plan: plan, order: model.selectedIDs, kitchen: model.kitchen)
-                    actions
-                    StepList(plan: plan, order: model.selectedIDs)
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            chips(recipes)
+                            numbers(plan)
+                            controls(plan)
+                        }
+                        .padding(20)
+                    }
+                    .frame(width: 320)
+                }
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        chips(recipes)
+                        numbers(plan)
+                        timelinePanel(plan, recipes: recipes)
+                        routeList(plan)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 4)
+                    .padding(.bottom, 12)
+                    .frame(maxWidth: 640)
+                    .frame(maxWidth: .infinity)
+                }
+                .safeAreaInset(edge: .bottom) {
+                    controls(plan)
+                        .padding(.horizontal, 20).padding(.top, 10).padding(.bottom, 8)
+                        .background(.regularMaterial)
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .frame(maxWidth: 980)
-            .frame(maxWidth: .infinity)
         }
         .background(Palette.ground.ignoresSafeArea())
-        .sheet(isPresented: $picking) {
-            NavigationStack { RecipeBookView(picking: true) }
-                .presentationBackground(Palette.ground)
-        }
-        .sheet(isPresented: $shopping) {
-            ShoppingView().presentationBackground(Palette.ground)
-        }
-        .fullScreenCover(isPresented: $cooking, onDismiss: {
-            if model.pendingPaywall {
-                model.pendingPaywall = false
-                model.offerPaywall(.afterFirstPlan)
+        .navigationTitle("コース")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showPicker = true } label: { Image(systemName: "plus") }
+                    .accessibilityLabel("品を足す")
             }
-        }) {
-            CookView()
         }
-        .sensoryFeedback(trigger: lockedTick) { _, _ in model.hapticsOn ? .warning : nil }
+        .sheet(isPresented: $showPicker) {
+            DishPicker().environment(model).presentationBackground(Palette.ground)
+        }
+        .sheet(isPresented: $showShopping) {
+            ShoppingView().environment(model).presentationBackground(Palette.ground)
+        }
+        .sensoryFeedback(trigger: tick) { _, _ in model.hapticsOn ? .selection : nil }
         .onAppear {
-            switch model.screenshotScene {
-            case "shopping": shopping = true
-            case "cook": cooking = true
-            default: break
+            if model.screenshotScene == "shopping" { showShopping = true }
+        }
+    }
+
+    // MARK: 空のとき
+
+    private var emptyState: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SectionTitle(kicker: "Course", title: "走るコースを選ぶ")
+            Text("作り置きを何品か選ぶと、手・コンロ・レンジの空きから「まとめて作る順番（ルート）」を出します。そのルートを走って、目安と自己ベストに挑みます。")
+                .font(Typo.body).foregroundStyle(Palette.sub).fixedSize(horizontal: false, vertical: true)
+            ForEach(RecipeBook.presets) { preset in
+                PresetRow(preset: preset) {
+                    tick += 1
+                    if !model.usePreset(preset) { model.offerPaywall(.lockedRecipe) }
+                }
+            }
+            Button("レシピから 1 品ずつ選ぶ") { showPicker = true }.buttonStyle(LineButtonStyle())
+        }
+    }
+
+    // MARK: 品の札
+
+    private func chips(_ recipes: [Recipe]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("選んだ品").smallLabel()
+                Spacer()
+                Text("\(recipes.count) / \(model.dishLimit) 品").font(.system(.caption, design: .serif)).monospacedDigit()
+                    .foregroundStyle(Palette.sub)
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(recipes.enumerated()), id: \.element.id) { index, recipe in
+                        DishChip(recipe: recipe, number: index + 1) {
+                            tick += 1
+                            withAnimation(.easeOut(duration: 0.2)) { _ = model.toggle(recipe) }
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
             }
         }
     }
 
-    // MARK: - 選んだ品
+    // MARK: 数字
 
-    private var dishes: some View {
+    private func numbers(_ plan: Plan) -> some View {
+        HStack(alignment: .top, spacing: 0) {
+            BigNumber(value: Clock.text(plan.totalMinutes * 60), caption: "目安", size: 34)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            BigNumber(value: "\(plan.sequentialMinutes)", unit: "分", caption: "1 品ずつだと", size: 26)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            BigNumber(value: model.courseBest.map { Clock.text($0.seconds) } ?? "—", caption: "自己ベスト", size: 26)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    // MARK: タイムライン
+
+    private func timelinePanel(_ plan: Plan, recipes: [Recipe]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("選んだ品").font(Typo.serif(.subheadline)).foregroundStyle(Palette.ink)
+                Text("タイムライン（分）").smallLabel()
                 Spacer()
-                Text("\(model.selectedIDs.count) / \(model.dishLimit) 品").font(Typo.small).monospacedDigit().foregroundStyle(Palette.sub)
+                legend(fill: Palette.sky, text: "手を動かす")
+                legend(fill: Palette.skySoft, text: "待つ")
             }
-            FlowLayout(spacing: 8) {
-                ForEach(Array(model.selectedRecipes.enumerated()), id: \.element.id) { index, recipe in
-                    Button {
-                        withAnimation(.easeOut(duration: 0.25)) { _ = model.toggle(recipe) }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text(Marker.circled(index)).font(.system(.footnote, design: .serif))
-                            Text(recipe.name).font(.system(.footnote, design: .serif, weight: .medium))
-                            Image(systemName: "xmark").font(.system(size: 9, weight: .semibold)).foregroundStyle(Palette.sub)
-                        }
-                        .foregroundStyle(Palette.ink)
-                        .padding(.horizontal, 12).frame(minHeight: 36)
-                        .background(TapeShape().fill(Palette.tape.opacity(0.85)))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(recipe.name)を外す")
-                }
-                Button { picking = true } label: {
-                    Label("品を足す", systemImage: "plus").font(.system(.footnote, weight: .medium))
-                }
-                .buttonStyle(LineButtonStyle())
-            }
-            if model.plansCompleted == 0 && !model.isPro {
-                Text("はじめての段取りは、8 品まで試せます。2 回目からは無料で 3 品まで。")
-                    .font(Typo.small).foregroundStyle(Palette.sub)
-            }
+            TimelineChart(plan: plan, order: recipes.map(\.id))
+        }
+        .panel(padding: 14)
+    }
+
+    private func legend(fill: Color, text: String) -> some View {
+        HStack(spacing: 4) {
+            RoundedRectangle(cornerRadius: 3).fill(fill).frame(width: 14, height: 9)
+                .overlay(RoundedRectangle(cornerRadius: 3).stroke(Palette.sky, lineWidth: 0.6))
+            Text(text).font(.system(size: 10)).foregroundStyle(Palette.sub)
         }
     }
 
-    // MARK: - 合計の時間
+    // MARK: ルート
 
-    private func summary(_ plan: Plan) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 18) {
-                BigNumber(value: "\(plan.totalMinutes)", unit: "分", caption: "段取りで")
-                BigNumber(value: "\(plan.sequentialMinutes)", unit: "分", caption: "1 品ずつだと")
-                BigNumber(value: "\(plan.handsMinutes)", unit: "分", caption: "手を動かす")
+    private func routeList(_ plan: Plan) -> some View {
+        let route = RunMath.route(plan)
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                SectionTitle(kicker: "Route", title: "ルート \(route.count) 歩")
+                Text("目安の時刻").font(Typo.label).foregroundStyle(Palette.sub)
             }
-            if plan.savedMinutes > 0 {
-                Text("待つあいだに次の品を進めるので、\(plan.savedMinutes) 分みじかくなります（めやす）。")
-                    .font(Typo.small).foregroundStyle(Palette.sub)
-            }
-            HStack {
-                Text("コンロ").font(Typo.small).foregroundStyle(Palette.ink)
-                Spacer()
-                Stepper(value: Binding(get: { model.kitchen.burners }, set: { model.kitchen.burners = $0 }), in: 1...3) {
-                    Text("\(model.kitchen.burners) 口").font(.system(.footnote, design: .serif)).monospacedDigit()
+            VStack(spacing: 0) {
+                ForEach(Array(route.enumerated()), id: \.element.id) { index, step in
+                    RouteRow(step: step, number: number(of: step), state: .upcoming)
+                    if index < route.count - 1 { Divider().overlay(Palette.line).padding(.leading, 92) }
                 }
-                .fixedSize()
             }
+            .panel(padding: 4)
         }
-        .animation(.easeOut(duration: 0.25), value: plan.totalMinutes)
     }
 
-    private var actions: some View {
-        VStack(spacing: 10) {
-            Button("段取りをはじめる") { cooking = true }
-                .buttonStyle(PrimaryButtonStyle())
+    private func number(of step: RouteStep) -> Int {
+        (model.selectedIDs.firstIndex(of: step.planned.recipeID) ?? 0) + 1
+    }
+
+    // MARK: 下の操作
+
+    private func controls(_ plan: Plan) -> some View {
+        @Bindable var model = model
+        return VStack(spacing: 10) {
             HStack(spacing: 10) {
-                Button { shopping = true } label: { Label("買い物リスト", systemImage: "cart").frame(maxWidth: .infinity) }
-                    .buttonStyle(LineButtonStyle())
-                Button { picking = true } label: { Label("レシピ帳", systemImage: "book").frame(maxWidth: .infinity) }
-                    .buttonStyle(LineButtonStyle())
+                HStack(spacing: 6) {
+                    LaneGlyph(kind: .burner(0), size: 16)
+                    Text("コンロ \(model.kitchen.burners) 口").font(.system(.footnote, weight: .medium)).monospacedDigit()
+                        .foregroundStyle(Palette.ink)
+                    Stepper("コンロの口の数", value: $model.kitchen.burners, in: 1...3)
+                        .labelsHidden()
+                        .scaleEffect(0.85)
+                }
+                Spacer(minLength: 4)
+                Button { showShopping = true } label: {
+                    Label("買い物", systemImage: "cart").font(.system(.footnote, weight: .medium))
+                }
+                .buttonStyle(LineButtonStyle())
             }
-        }
-    }
-
-    // MARK: - 空のとき：おすすめの組み合わせ
-
-    private var presets: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("何品か選ぶと、手・コンロ・レンジの空きから、まとめて作る順番が出ます。まずは組み合わせから。")
-                .font(Typo.body).foregroundStyle(Palette.sub)
-                .fixedSize(horizontal: false, vertical: true)
-            let columns = [GridItem(.adaptive(minimum: 150), spacing: 12)]
-            LazyVGrid(columns: columns, spacing: 12) {
-                ForEach(RecipeBook.presets) { preset in
-                    Button {
-                        if !model.usePreset(preset) { lockedTick += 1; model.offerPaywall(.lockedRecipe) }
-                    } label: {
-                        PresetCard(preset: preset, locked: preset.isPro && !model.isPro)
-                    }
-                    .buttonStyle(.plain)
+            if model.courseBest != nil {
+                Text(model.canUseGhost ? (model.isPro ? "自己ベストのゴーストと走ります" : "自己ベストのゴーストを 1 回お試しで使えます")
+                     : "ゴースト（自己ベストとの差）は Pro で")
+                    .font(.system(size: 12)).foregroundStyle(model.canUseGhost ? Palette.peachInk : Palette.sub)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Button {
+                model.startRun()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "flag.checkered")
+                    Text("スタート")
                 }
             }
-            Button { picking = true } label: { Label("レシピ帳から 1 品ずつ選ぶ", systemImage: "book").frame(maxWidth: .infinity) }
-                .buttonStyle(LineButtonStyle())
+            .buttonStyle(PrimaryButtonStyle(enabled: !plan.isEmpty))
+            .disabled(plan.isEmpty)
         }
     }
 }
 
-struct PresetCard: View {
-    let preset: Preset
-    let locked: Bool
+/// ルートの 1 歩
+struct RouteRow: View {
+    enum Phase { case upcoming, done, current }
+    let step: RouteStep
+    let number: Int
+    let state: Phase
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("\(preset.recipeIDs.count) 品").smallLabel()
-                Spacer()
-                if locked { Text("PRO").font(.system(size: 9, weight: .semibold)).kerning(0.8).foregroundStyle(Palette.mintDeep) }
+        let recipe = RecipeBook.recipe(step.planned.recipeID)
+        HStack(alignment: .center, spacing: 10) {
+            Text(Clock.text(step.checkpointMinutes * 60))
+                .font(.system(size: 13, design: .serif)).monospacedDigit()
+                .foregroundStyle(state == .current ? Palette.peachInk : Palette.sub)
+                .frame(width: 40, alignment: .trailing)
+            ZStack(alignment: .bottomTrailing) {
+                if let recipe { DishIcon(recipe: recipe, size: 32) }
+                Text("\(number)").font(.system(size: 10, weight: .semibold, design: .serif)).foregroundStyle(.white)
+                    .frame(width: 15, height: 15).background(Circle().fill(Palette.skyDeep))
+                    .offset(x: 3, y: 2)
             }
-            Text(preset.title).font(Typo.serif(.headline)).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)
-            Text(preset.note).font(Typo.small).foregroundStyle(Palette.sub).lineLimit(2)
-            let minutes = Scheduler.plan(preset.recipeIDs.compactMap(RecipeBook.recipe)).totalMinutes
-            Text("段取りで約 \(minutes) 分").font(.system(.caption, design: .serif)).monospacedDigit().foregroundStyle(Palette.mintDeep)
+            .frame(width: 34, height: 34)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(step.planned.step.text).font(.system(.subheadline)).foregroundStyle(state == .done ? Palette.sub : Palette.ink)
+                    .strikethrough(state == .done, color: Palette.sub)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 4) {
+                    Text(step.planned.recipeName)
+                    Text("・")
+                    Text(step.isWait ? "\(step.planned.step.minutes) 分 待つ" : "\(step.planned.step.minutes) 分")
+                    if step.planned.step.device != .none { Text("・\(step.planned.step.device.label)") }
+                }
+                .font(.system(size: 11)).foregroundStyle(Palette.sub).lineLimit(1)
+            }
+            Spacer(minLength: 0)
+            Text(step.isWait ? "仕掛ける" : "手")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(step.isWait ? Palette.skyDeep : .white)
+                .padding(.horizontal, 6).padding(.vertical, 2)
+                .background(Capsule().fill(step.isWait ? Palette.skySoft : Palette.sky))
+                .fixedSize()
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 130, alignment: .topLeading)
-        .background(RoundedRectangle(cornerRadius: Radius.panel, style: .continuous).fill(Palette.paper))
-        .overlay(RoundedRectangle(cornerRadius: Radius.panel, style: .continuous).stroke(Palette.line, lineWidth: 1))
-        .opacity(locked ? 0.75 : 1)
+        .padding(.horizontal, 8).padding(.vertical, 9)
+        .background(state == .current ? Palette.peachSoft.opacity(0.6) : .clear)
         .accessibilityElement(children: .combine)
     }
 }
 
-/// 品の番号（選んだ順）
-enum Marker {
-    static func circled(_ index: Int) -> String {
-        let marks = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧"]
-        return index < marks.count ? marks[index] : "\(index + 1)"
-    }
-}
-
-/// 方眼のメモに書いた段取りの帯（手・コンロ・レンジ・グリル・待ち）
-struct TimelineChart: View {
-    let plan: Plan
-    let order: [String]
-    let kitchen: KitchenSetup
-    private let rowHeight: CGFloat = 30
-    private let labelWidth: CGFloat = 52
-    private let perMinute: CGFloat = 6
-
-    private struct Lane: Identifiable {
-        let id: String
-        let title: String
-        let steps: [PlannedStep]
-    }
-
-    private var lanes: [Lane] {
-        var lanes = [Lane(id: "hands", title: "手", steps: plan.steps.filter(\.step.hands))]
-        for i in 0..<kitchen.burners {
-            lanes.append(Lane(id: "burner\(i)", title: "コンロ\(i + 1)", steps: plan.steps.filter { $0.step.device == .burner && $0.slot == i }))
-        }
-        let micro = plan.steps.filter { $0.step.device == .micro }
-        if !micro.isEmpty { lanes.append(Lane(id: "micro", title: "レンジ", steps: micro)) }
-        let oven = plan.steps.filter { $0.step.device == .oven }
-        if !oven.isEmpty { lanes.append(Lane(id: "oven", title: "グリル", steps: oven)) }
-        for row in 0..<plan.waitRows {
-            lanes.append(Lane(id: "wait\(row)", title: row == 0 ? "待つ" : "", steps: plan.steps.filter { !$0.step.hands && $0.step.device == .none && $0.slot == row }))
-        }
-        return lanes
-    }
+/// おすすめの組み合わせの 1 行
+struct PresetRow: View {
+    @Environment(AppModel.self) private var model
+    let preset: Preset
+    let action: () -> Void
 
     var body: some View {
-        let width = CGFloat(max(plan.totalMinutes, 30)) * perMinute
-        VStack(alignment: .leading, spacing: 8) {
-            Text("タイムライン").font(Typo.serif(.subheadline)).foregroundStyle(Palette.ink)
-            HStack(alignment: .top, spacing: 0) {
-                VStack(alignment: .leading, spacing: 0) {
-                    Color.clear.frame(width: labelWidth, height: 18)
-                    ForEach(lanes) { lane in
-                        Text(lane.title).font(Typo.label).foregroundStyle(Palette.sub)
-                            .frame(width: labelWidth, height: rowHeight, alignment: .leading)
+        let recipes = preset.recipeIDs.compactMap(RecipeBook.recipe)
+        let plan = Scheduler.plan(recipes, kitchen: model.kitchen)
+        Button(action: action) {
+            HStack(spacing: 12) {
+                HStack(spacing: -10) {
+                    ForEach(recipes.prefix(4)) { recipe in
+                        DishIcon(recipe: recipe, size: 34).background(Circle().fill(Palette.ground))
                     }
                 }
-                .frame(width: labelWidth)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ruler(width: width)
-                        ForEach(lanes) { lane in
-                            ZStack(alignment: .leading) {
-                                Rectangle().fill(Palette.line).frame(height: 0.6).frame(maxHeight: .infinity, alignment: .bottom)
-                                ForEach(lane.steps) { step in bar(step) }
-                            }
-                            .frame(width: width, height: rowHeight)
+                .frame(width: 96, alignment: .leading)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(preset.title).font(.system(.subheadline, weight: .semibold)).foregroundStyle(Palette.ink)
+                        if preset.isPro && !model.isPro {
+                            Image(systemName: "lock.fill").font(.system(size: 10)).foregroundStyle(Palette.sub)
                         }
                     }
-                    .padding(.trailing, 12)
+                    Text(preset.note).font(.system(size: 12)).foregroundStyle(Palette.sub).lineLimit(1)
+                }
+                Spacer(minLength: 4)
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text(Clock.text(plan.totalMinutes * 60)).font(.system(.callout, design: .serif)).monospacedDigit()
+                        .foregroundStyle(Palette.ink)
+                    Text("\(recipes.count) 品").font(.system(size: 10)).foregroundStyle(Palette.sub)
                 }
             }
-            .padding(12)
-            .background(GridPaper(spacing: 12).clipShape(RoundedRectangle(cornerRadius: Radius.panel, style: .continuous)))
-            .background(RoundedRectangle(cornerRadius: Radius.panel, style: .continuous).fill(Palette.paper))
-            .overlay(RoundedRectangle(cornerRadius: Radius.panel, style: .continuous).stroke(Palette.line, lineWidth: 1))
+            .panel(padding: 12)
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("タイムライン。\(order.count) 品を \(plan.totalMinutes) 分で作る段取り")
-    }
-
-    private func ruler(width: CGFloat) -> some View {
-        ZStack(alignment: .leading) {
-            ForEach(Array(stride(from: 0, through: max(plan.totalMinutes, 30), by: 10)), id: \.self) { minute in
-                Text("\(minute)").font(.system(size: 9, design: .serif)).monospacedDigit().foregroundStyle(Palette.sub)
-                    .offset(x: CGFloat(minute) * perMinute)
-            }
-        }
-        .frame(width: width, height: 18, alignment: .leading)
-    }
-
-    private func bar(_ step: PlannedStep) -> some View {
-        let index = order.firstIndex(of: step.recipeID) ?? 0
-        let w = max(CGFloat(step.step.minutes) * perMinute - 2, 10)
-        return RoundedRectangle(cornerRadius: 6, style: .continuous)
-            .fill(step.step.hands ? Palette.mint : Palette.mintSoft)
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(Palette.mintDeep.opacity(step.step.hands ? 0 : 0.35), style: StrokeStyle(lineWidth: 0.8, dash: [3, 2]))
-            )
-            .overlay(alignment: .leading) {
-                Text(w > 40 ? "\(Marker.circled(index))\(step.recipeName)" : Marker.circled(index))
-                    .font(.system(size: 10, design: .serif))
-                    .foregroundStyle(Palette.ink)
-                    .lineLimit(1)
-                    .padding(.horizontal, 4)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .frame(width: w, height: rowHeight - 8)
-            .offset(x: CGFloat(step.start) * perMinute)
+        .buttonStyle(.plain)
+        .accessibilityHint(preset.isPro && !model.isPro ? "Pro で開きます" : "このコースにする")
     }
 }
 
-/// 工程の一覧（始める時刻の順）
-struct StepList: View {
-    let plan: Plan
-    let order: [String]
+/// 品を足す：組み合わせとレシピの一覧
+struct DishPicker: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    @State private var category: RecipeCategory?
+    @State private var note: String?
+    @State private var tick = 0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("順番").font(Typo.serif(.subheadline)).foregroundStyle(Palette.ink).padding(.bottom, 8)
-            ForEach(plan.steps) { step in
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text(Clock.text(step.start)).font(.system(.footnote, design: .serif)).monospacedDigit()
-                        .foregroundStyle(Palette.mintDeep).frame(width: 40, alignment: .leading)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("\(Marker.circled(order.firstIndex(of: step.recipeID) ?? 0)) \(step.recipeName)").smallLabel()
-                        Text(step.step.text).font(Typo.body).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    CategoryChips(selection: $category)
+                    if let note {
+                        Text(note).font(Typo.small).foregroundStyle(Palette.peachInk)
                     }
-                    Spacer(minLength: 4)
-                    Text(StepTag.text(step.step)).font(Typo.label).foregroundStyle(Palette.sub)
+                    VStack(spacing: 0) {
+                        let list = RecipeBook.all.filter { category == nil || $0.category == category }
+                        ForEach(list) { recipe in
+                            RecipeRow(recipe: recipe, selected: model.selectedIDs.contains(recipe.id)) { toggle(recipe) }
+                            if recipe.id != list.last?.id { Divider().overlay(Palette.line).padding(.leading, 66) }
+                        }
+                    }
+                    .panel(padding: 4)
                 }
-                .padding(.vertical, 8)
-                .accessibilityElement(children: .combine)
-                Rectangle().fill(Palette.line).frame(height: 0.6)
+                .padding(20)
+                .frame(maxWidth: 640)
+                .frame(maxWidth: .infinity)
+            }
+            .background(Palette.ground.ignoresSafeArea())
+            .navigationTitle("品を足す（\(model.selectedIDs.count) / \(model.dishLimit)）")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("できた") { dismiss() } }
             }
         }
-    }
-}
-
-enum Clock {
-    /// 経過の分を「0:05」の形に
-    static func text(_ minutes: Int) -> String { String(format: "%d:%02d", minutes / 60, minutes % 60) }
-}
-
-enum StepTag {
-    static func text(_ step: RecipeStep) -> String {
-        let kind = step.hands ? "手" : "待つ"
-        let device = step.device == .none ? "" : "・" + step.device.label
-        return "\(step.minutes)分 \(kind)\(device)"
-    }
-}
-
-/// 札を折り返して並べる
-struct FlowLayout: Layout {
-    var spacing: CGFloat = 8
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let maxWidth = proposal.width ?? .infinity
-        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0, widest: CGFloat = 0
-        for view in subviews {
-            let size = view.sizeThatFits(.unspecified)
-            if x > 0 && x + size.width > maxWidth { x = 0; y += rowHeight + spacing; rowHeight = 0 }
-            x += size.width + spacing
-            widest = max(widest, x - spacing)
-            rowHeight = max(rowHeight, size.height)
-        }
-        // 折り返しを決めた幅をそのまま返す（狭い幅で置き直されて重ならないように）
-        return CGSize(width: maxWidth.isFinite ? maxWidth : widest, height: y + rowHeight)
+        .sensoryFeedback(trigger: tick) { _, _ in model.hapticsOn ? .selection : nil }
     }
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var x = bounds.minX, y = bounds.minY, rowHeight: CGFloat = 0
-        for view in subviews {
-            let size = view.sizeThatFits(.unspecified)
-            if x > bounds.minX && x + size.width > bounds.maxX { x = bounds.minX; y += rowHeight + spacing; rowHeight = 0 }
-            view.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
+    private func toggle(_ recipe: Recipe) {
+        tick += 1
+        switch model.toggle(recipe) {
+        case .added, .removed: note = nil
+        case .locked:
+            dismiss()
+            model.offerPaywallSoon(.lockedRecipe)
+        case .full:
+            note = model.isPro ? "1 回のランは \(ProRules.proDishLimit) 品までです。" : "無料では 1 回に \(ProRules.freeDishLimit) 品まで。Pro で 8 品まで走れます。"
         }
     }
 }

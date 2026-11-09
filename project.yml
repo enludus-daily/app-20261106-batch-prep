@@ -4,7 +4,7 @@ name: BatchPrep
 options:
   developmentLanguage: ja
   deploymentTarget:
-    iOS: "18.0"
+    iOS: "26.0"
   createIntermediateGroups: true
 settings:
   base:
@@ -23,7 +23,7 @@ targets:
     info:
       path: App/Info.plist
       properties:
-        CFBundleDisplayName: "段取り帖"
+        CFBundleDisplayName: "段取りラン"
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         # 標準の HTTPS 以外の暗号を使わない前提。使うなら本人に戻す（輸出規制の申告が変わる）

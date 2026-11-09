@@ -5,13 +5,13 @@
   ],
   "products" : [
     {
-      "displayPrice" : "480",
+      "displayPrice" : "800",
       "familyShareable" : true,
       "internalID" : "6754000401",
       "localizations" : [
         {
-          "description" : "全レシピの束・1回8品までの段取り・1年分の食べきりカレンダー",
-          "displayName" : "段取り帖 Pro",
+          "description" : "ゴースト・全レシピ・1回8品・全部の記録",
+          "displayName" : "段取りラン Pro",
           "locale" : "ja"
         }
       ],

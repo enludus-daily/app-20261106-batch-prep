@@ -14,12 +14,12 @@ struct ShoppingView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     HStack(alignment: .bottom) {
-                        Heading(kicker: "Shopping list", title: "買うもの \(all.count) 点")
+                        SectionTitle(kicker: "Shopping list", title: "買うもの \(all.count) 点")
                         Text("\(bought) / \(all.count)").font(.system(.subheadline, design: .serif)).monospacedDigit()
-                            .foregroundStyle(Palette.mintDeep).contentTransition(.numericText())
+                            .foregroundStyle(Palette.skyDeep).contentTransition(.numericText())
                     }
                     if groups.isEmpty {
-                        EmptyNote(title: "まだ空です", message: "段取りに品を選ぶと、材料がここにまとまります。", action: "閉じる") { dismiss() }
+                        EmptyNote(title: "まだ空です", message: "コースに品を選ぶと、材料がここにまとまります。", action: "閉じる") { dismiss() }
                     }
                     ForEach(groups) { group in
                         VStack(alignment: .leading, spacing: 0) {
@@ -37,7 +37,7 @@ struct ShoppingView: View {
             }
             .background(Palette.ground.ignoresSafeArea())
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("閉じる") { dismiss() }.tint(Palette.mintDeep) }
+                ToolbarItem(placement: .confirmationAction) { Button("閉じる") { dismiss() }.tint(Palette.skyDeep) }
             }
         }
         .sensoryFeedback(trigger: tick) { _, _ in model.hapticsOn ? .selection : nil }
@@ -53,7 +53,7 @@ struct ShoppingView: View {
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Image(systemName: checked ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(checked ? Palette.mintDeep : Palette.line)
+                    .foregroundStyle(checked ? Palette.skyDeep : Palette.line)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.name).font(Typo.body).foregroundStyle(checked ? Palette.sub : Palette.ink)
                         .strikethrough(checked, color: Palette.sub)

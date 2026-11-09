@@ -22,6 +22,8 @@ jobs:
       xcode-version: "27.1"
       test-destination: "platform=iOS Simulator,name=iPhone Duo,OS=27.1"
       screenshot-device: iPhone Duo
+      # 内側の大きな画面（display3）を撮るため、開いた姿勢にする（効かなければ警告だけ。撮影は best effort）
+      screenshot-posture: open
       # 撮る画面（アプリが起動引数 -screenshotScene <名前> で開く画面。@dark でダークモード）。手順書 9.5
-      screenshot-scenes: launch onboarding fridgeDetail empty planEmpty plan cook shopping recipes recipe paywall settings
+      screenshot-scenes: launch onboarding plan planBig cook cookEnd result fridge fridgeDetail empty recipes recipe shopping paywall settings
       guard-disabled: ${{ vars.DAILY_GUARD_DISABLED == 'true' && 'true' || 'false' }}
